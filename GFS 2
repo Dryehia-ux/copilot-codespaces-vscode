@@ -1,0 +1,55 @@
+//@version=5
+strategy(title="EMA Crossover Strategy (Long Only)", shorttitle="EMA COS", overlay=true, pyramiding=0, default_qty_type=strategy.percent_of_equity, default_qty_value=10, currency=currency.USD, commission_type=strategy.commission.percent, commission_value=0.1)
+
+// === GENERAL INPUTS ===
+// Strategy start date
+start_year = input(defval=2020, title="Backtest Start Year")
+
+// === LOGIC ===
+length = input.int(defval=20, minval=1, title="Length")
+ratio = input.int(defval=3, title="Multiplier (3x length, 4x length, etc)", options=[3, 4, 5, 6, 7, 8, 9, 10])
+fast = ta.ema(hl2, length)
+slow = ta.ema(hl2, length * ratio)
+
+// Plot EMAs
+plot(fast, linewidth=2, color=color.orange, title="Fast")
+plot(slow, linewidth=2, color=color.blue, title="Slow")
+
+// Long entry condition (crossover of fast EMA over slow EMA)
+longEntry = ta.crossover(fast, slow)
+
+// Check if current candle's close is above EMA 200
+ema200 = ta.ema(close, 200)
+validLongEntry = longEntry and close > ema200
+
+// Plot long entry triangle
+plotshape(validLongEntry ? close : na, style=shape.triangleup, color=color.green, location=location.belowbar, size=size.small, title="Long Triangle")
+
+// Plot 200 EMA
+plot(ema200, linewidth=2, color=color.red, title="200 EMA")
+
+// === STRATEGY - LONG POSITION EXECUTION ===
+if validLongEntry and time > timestamp(start_year, 1, 1, 01, 01)
+    strategy.entry("Long", strategy.long)
+
+// Define the profit target (5%)
+var float targetPrice = na
+if (strategy.opentrades > 0)
+    entryPrice = strategy.opentrades.entry_price(0)
+    targetPrice := entryPrice * 1.05
+
+// Check if current price has reached the profit target and close the position
+if (close >= targetPrice)
+    strategy.close("Long")
+
+// No short positions
+strategy.close("Short")
+
+// No short entry conditions
+enterShort() =>
+    false
+
+// No short exit conditions
+exitShort() =>
+    false
+
